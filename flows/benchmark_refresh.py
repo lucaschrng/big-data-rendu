@@ -41,11 +41,24 @@ def benchmark_refresh_flow():
     print(f"⚡ TOTAL REFRESH TIME: {total_time:.4f}s")
     print("=" * 60)
     
-    return {
+    results = {
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "gold_duration": gold_duration,
         "etl_duration": etl_duration,
         "total_time": total_time
     }
+    
+    # Save to JSON
+    import json
+    import os
+    
+    os.makedirs("data", exist_ok=True)
+    with open("data/benchmark_refresh_results.json", "w") as f:
+        json.dump(results, f, indent=2)
+        
+    print("✓ Results saved to data/benchmark_refresh_results.json")
+    
+    return results
 
 if __name__ == "__main__":
     benchmark_refresh_flow()

@@ -16,7 +16,7 @@ from flows.config import BUCKET_GOLD, get_minio_client
 # CONFIGURATION & SETUP
 # ============================================================================
 st.set_page_config(
-    page_title="Relief App Analytics",
+    page_title="Analytics",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -99,7 +99,7 @@ if dashboard_mode == "Data Lake (Historical/MinIO)":
     page = st.sidebar.radio(
         "Go to",
         ["🏠 Overview", "📈 Temporal Analysis", "👥 Client Analytics", 
-         "📦 Product Analytics", "🌍 Geographic Analysis", "📊 Statistics"]
+         "📦 Product Analytics", "🌍 Geographic Analysis", "📊 Statistics", "🚀 Benchmark"]
     )
     
     st.sidebar.markdown("---")
@@ -127,8 +127,30 @@ if dashboard_mode == "Data Lake (Historical/MinIO)":
             'weekly_sales': load_csv_from_gold('weekly_sales.csv'),
             'monthly_sales': load_csv_from_gold('monthly_sales.csv')
         }
+        
+    def load_benchmark_results():
+        """Load benchmark results from local file."""
+        try:
+            if os.path.exists("data/benchmark_results.json"):
+                with open("data/benchmark_results.json", "r") as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return None
+
+    def load_refresh_benchmark_results():
+        """Load refresh benchmark results from local file."""
+        try:
+            if os.path.exists("data/benchmark_refresh_results.json"):
+                with open("data/benchmark_refresh_results.json", "r") as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return None
 
     data = load_all_datalake_data()
+    benchmark_data = load_benchmark_results()
+    refresh_data = load_refresh_benchmark_results()
 
     # ------------------------------------------------------------------------
     # PAGE: OVERVIEW
@@ -334,6 +356,124 @@ if dashboard_mode == "Data Lake (Historical/MinIO)":
             st.stop()
         
         st.json(data['stats'])
+
+    # ------------------------------------------------------------------------
+    # PAGE: BENCHMARK
+    # ------------------------------------------------------------------------
+    elif page == "🚀 Benchmark":
+        st.markdown('<p class="main-header">🚀 Performance Benchmark</p>', unsafe_allow_html=True)
+        
+        tab1, tab2 = st.tabs(["Processing Engines (Pandas vs Spark)", "Refresh Performance (Gold -> Mongo)"])
+        
+        with tab1:
+            st.subheader("Processing Engines Comparison")
+            if not benchmark_data:
+                st.warning("No benchmark data available. Please run `python flows/benchmark.py` to generate results.")
+            else:
+                # Header metrics
+                comp = benchmark_data['comparison']
+                winner = comp['winner'].upper()
+                winner_color = "green" if winner == "PANDAS" else "blue"
+                
+                st.markdown(f"### 🏆 Winner: :{winner_color}[{winner}]")
+                st.info(f"**Reason:** {comp['winner_reason']}")
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Speedup", f"{comp['total_speedup']:.2f}x")
+                with col2:
+                    st.metric("Pandas Total Time", f"{benchmark_data['pandas']['timing']['total']:.2f}s")
+                with col3:
+                    st.metric("Spark Total Time", f"{benchmark_data['spark']['timing']['total']:.2f}s")
+                    
+                st.markdown("---")
+                
+                # Detailed Timing Comparison
+                st.markdown("### ⏱️ Execution Time by Step")
+                
+                steps = ['bronze_ingestion', 'silver_transformation', 'gold_aggregation']
+                step_labels = ['Bronze Ingestion', 'Silver Transformation', 'Gold Aggregation']
+                
+                pandas_times = [benchmark_data['pandas']['timing'].get(s, 0) for s in steps]
+                spark_times = [benchmark_data['spark']['timing'].get(s, 0) for s in steps]
+                
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    name='Pandas',
+                    x=step_labels,
+                    y=pandas_times,
+                    text=[f"{t:.2f}s" for t in pandas_times],
+                    textposition='auto',
+                    marker_color='#2ecc71'
+                ))
+                fig.add_trace(go.Bar(
+                    name='Spark',
+                    x=step_labels,
+                    y=spark_times,
+                    text=[f"{t:.2f}s" for t in spark_times],
+                    textposition='auto',
+                    marker_color='#3498db'
+                ))
+                
+                fig.update_layout(
+                    barmode='group',
+                    title="Processing Time per Layer (Lower is Better)",
+                    yaxis_title="Time (seconds)",
+                    height=500
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Data Quality Score
+                st.markdown("### ✅ Data Quality")
+                
+                q_col1, q_col2 = st.columns(2)
+                with q_col1:
+                    st.metric("Pandas Quality Score", f"{benchmark_data['pandas']['data_quality_score']}%")
+                with q_col2:
+                    st.metric("Spark Quality Score", f"{benchmark_data['spark']['data_quality_score']}%")
+                    
+                # Raw Data
+                with st.expander("See Raw Benchmark Data"):
+                    st.json(benchmark_data)
+
+        with tab2:
+            st.subheader("Refresh Cycle Performance")
+            st.markdown("Benchmark of the operational refresh pipeline: **Gold Aggregation (Pandas) → Parquet → MongoDB Load**")
+            
+            if not refresh_data:
+                st.warning("No refresh benchmark data available. Please run `python flows/benchmark_refresh.py`.")
+            else:
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("⚡ Total Refresh Time", f"{refresh_data['total_time']:.4f}s")
+                with col2:
+                    st.metric("Gold Generation", f"{refresh_data['gold_duration']:.4f}s")
+                with col3:
+                    st.metric("ETL to Mongo", f"{refresh_data['etl_duration']:.4f}s")
+                
+                # Waterfall chart for breakdown
+                fig = go.Figure(go.Waterfall(
+                    name = "Refresh Cycle",
+                    orientation = "v",
+                    measure = ["relative", "relative", "total"],
+                    x = ["Gold Generation", "ETL to Mongo", "Total Time"],
+                    textposition = "outside",
+                    text = [f"{refresh_data['gold_duration']:.2f}s", f"{refresh_data['etl_duration']:.2f}s", f"{refresh_data['total_time']:.2f}s"],
+                    y = [refresh_data['gold_duration'], refresh_data['etl_duration'], 0],
+                    connector = {"line":{"color":"rgb(63, 63, 63)"}},
+                ))
+
+                fig.update_layout(
+                    title = "Refresh Cycle Breakdown",
+                    showlegend = False,
+                    height=400
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
+                st.success(f"Last updated: {refresh_data.get('timestamp', 'N/A')}")
+                
+                with st.expander("See Raw Refresh Data"):
+                    st.json(refresh_data)
 
 # ============================================================================
 # OPERATIONAL DASHBOARD (API)
