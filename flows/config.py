@@ -17,6 +17,10 @@ MINIO_SECURE = os.getenv("MINIO_SECURE", "False").lower() == "true"
 # Database configuration
 SQLITE_DB_PATH = os.getenv("SQLITE_DB_PATH", "./data/database/analytics.db")
 
+# MongoDB configuration
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://admin:password@localhost:27017")
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "analytics_gold")
+
 # Prefect configuration
 PREFECT_API_URL = os.getenv("PREFECT_API_URL", "http://localhost:4200/api")
 

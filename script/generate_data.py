@@ -101,7 +101,7 @@ def generate_purchases(client_ids: list[int], avg_purchases_per_client: int, out
   print(f"Generated {len(purchases)} purchases in {output_path}")
 
 if __name__ == "__main__":
-  n_clients = 2_000_000
+  n_clients = 20_000
   output_path = "data/clients.csv"
   client_ids = generate_client(n_clients, output_path)
   

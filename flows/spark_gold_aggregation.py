@@ -575,6 +575,73 @@ def write_spark_df_to_gold(df: DataFrame, object_name: str) -> str:
     return object_name
 
 
+def write_spark_parquet_to_gold(df: DataFrame, object_name: str) -> str:
+    """
+    Write Spark DataFrame to gold bucket as Parquet.
+    
+    Args:
+        df: DataFrame to write
+        object_name: Name of object in gold bucket
+        
+    Returns:
+        Object name in gold bucket
+    """
+    client = get_minio_client()
+    
+    if not client.bucket_exists(BUCKET_GOLD):
+        client.make_bucket(BUCKET_GOLD)
+    
+    # Download to temp file and upload (simplest way with MinIO client)
+    # Alternatively could configure Hadoop/S3A but that requires more jars
+    import tempfile
+    import os
+    import shutil
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Write parquet to local temp dir
+        local_path = os.path.join(temp_dir, "data.parquet")
+        df.write.mode("overwrite").parquet(local_path)
+        
+        # In Spark, writing to a directory creates part- files. 
+        # We want to upload the folder structure or a single file?
+        # MinIO/S3 structure usually expects a "prefix" (folder) which contains the part files.
+        # So object_name should be treated as a prefix if it doesn't end in an extension, 
+        # or we upload all files under that prefix.
+        
+        # However, for simplicity and compatibility with the rest of the pipeline which treats objects as files,
+        # we might want to try to coalesce(1) before write if data is small, to get a single part file,
+        # but Spark still writes a directory.
+        
+        # Strategy: Upload all files in the directory to MinIO under the object_name prefix
+        # If object_name is "fact_sales.parquet", we upload files to gold/fact_sales.parquet/part-000...
+        
+        for root, dirs, files in os.walk(local_path):
+            for file in files:
+                if file.startswith(".") or file.startswith("_SUCCESS"):
+                    continue
+                    
+                local_file_path = os.path.join(root, file)
+                # Calculate relative path for object storage
+                # If structure is temp/data.parquet/part-001.parquet
+                # We want gold/fact_sales.parquet/part-001.parquet
+                
+                # If we just want to support reading later by Spark/Pandas, they can read directories.
+                # So uploading the directory content is correct.
+                
+                # Construct object key
+                # object_name is e.g. "fact_sales.parquet"
+                minio_key = f"{object_name}/{file}"
+                
+                client.fput_object(
+                    BUCKET_GOLD,
+                    minio_key,
+                    local_file_path
+                )
+    
+    print(f"Wrote Parquet to {BUCKET_GOLD}/{object_name}")
+    return object_name
+
+
 def write_json_to_gold_spark(data: dict, object_name: str) -> str:
     """
     Write dictionary to gold bucket as JSON.
@@ -643,36 +710,43 @@ def spark_gold_aggregation_flow(master_url: str = "local[*]") -> dict:
         fact_sales = create_fact_sales_spark(purchases_df, clients_df)
         fact_sales.cache()  # Cache for reuse
         fact_sales_file = write_spark_df_to_gold(fact_sales, "fact_sales_spark.csv")
+        write_spark_parquet_to_gold(fact_sales, "fact_sales_spark.parquet")
         
         # Calculate client KPIs
         print("\n[2/9] Calculating client KPIs...")
         client_kpis = calculate_client_kpis_spark(fact_sales)
         client_kpis_file = write_spark_df_to_gold(client_kpis, "client_kpis_spark.csv")
+        write_spark_parquet_to_gold(client_kpis, "client_kpis_spark.parquet")
         
         # Calculate product analytics
         print("\n[3/9] Calculating product analytics...")
         product_analytics = calculate_product_analytics_spark(fact_sales)
         product_analytics_file = write_spark_df_to_gold(product_analytics, "product_analytics_spark.csv")
+        write_spark_parquet_to_gold(product_analytics, "product_analytics_spark.parquet")
         
         # Calculate country analytics
         print("\n[4/9] Calculating country analytics...")
         country_analytics = calculate_country_analytics_spark(fact_sales)
         country_analytics_file = write_spark_df_to_gold(country_analytics, "country_analytics_spark.csv")
+        write_spark_parquet_to_gold(country_analytics, "country_analytics_spark.parquet")
         
         # Calculate daily aggregations
         print("\n[5/9] Calculating daily aggregations...")
         daily_agg = calculate_daily_aggregations_spark(fact_sales)
         daily_agg_file = write_spark_df_to_gold(daily_agg, "daily_sales_spark.csv")
+        write_spark_parquet_to_gold(daily_agg, "daily_sales_spark.parquet")
         
         # Calculate weekly aggregations
         print("\n[6/9] Calculating weekly aggregations...")
         weekly_agg = calculate_weekly_aggregations_spark(fact_sales)
         weekly_agg_file = write_spark_df_to_gold(weekly_agg, "weekly_sales_spark.csv")
+        write_spark_parquet_to_gold(weekly_agg, "weekly_sales_spark.parquet")
         
         # Calculate monthly aggregations
         print("\n[7/9] Calculating monthly aggregations...")
         monthly_agg = calculate_monthly_aggregations_spark(fact_sales)
         monthly_agg_file = write_spark_df_to_gold(monthly_agg, "monthly_sales_spark.csv")
+        write_spark_parquet_to_gold(monthly_agg, "monthly_sales_spark.parquet")
         
         # Calculate statistical distributions
         print("\n[8/9] Calculating statistical distributions...")

@@ -1,29 +1,29 @@
 {
-  "benchmark_timestamp": "2026-01-20T13:53:13.850630",
+  "benchmark_timestamp": "2026-01-20T15:59:23.896081",
   "spark_master_url": "local[*]",
   "pandas": {
     "timing": {
-      "bronze_ingestion": 14.176056791002338,
-      "silver_transformation": 41.75526920899574,
-      "gold_aggregation": 91.27228566600388,
-      "total": 147.20399212500342
+      "bronze_ingestion": 0.620454374999099,
+      "silver_transformation": 0.8462648330023512,
+      "gold_aggregation": 5.165001708002819,
+      "total": 6.6320124580015545
     },
-    "data_quality_score": 40.61
+    "data_quality_score": 95.81
   },
   "spark": {
     "timing": {
       "bronze_ingestion": 0,
-      "silver_transformation": 76.44596833299875,
-      "gold_aggregation": 176.4241442920029,
-      "total": 252.95532595800614
+      "silver_transformation": 16.19832029200188,
+      "gold_aggregation": 22.34873783399962,
+      "total": 38.649846457999956
     },
-    "data_quality_score": 40.61
+    "data_quality_score": 95.81
   },
   "comparison": {
-    "silver_speedup": 0.5462062960221752,
-    "gold_speedup": 0.517345775048439,
-    "total_speedup": 0.5819367177484975,
-    "pandas_faster_by": 105.75133383300272,
+    "silver_speedup": 0.05224398689166585,
+    "gold_speedup": 0.2311093246682231,
+    "total_speedup": 0.17159220710510287,
+    "pandas_faster_by": 32.0178339999984,
     "winner": "pandas",
     "winner_reason": "Lower overhead for small datasets"
   }

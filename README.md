@@ -166,6 +166,51 @@ python benchmark.py --spark-master spark://spark-master:7077  # Cluster distant
 
 > **💡 Note**: Spark a un overhead de démarrage. Avec des datasets plus volumineux (millions de lignes), Spark montrera des gains de performance significatifs grâce au traitement distribué.
 
+## 🚀 Base NoSQL & Dashboarding (Nouveau)
+
+Une couche opérationnelle temps-réel a été ajoutée :
+
+1.  **MongoDB** : Base NoSQL pour les données Gold (Lecture rapide).
+2.  **FastAPI** : API REST exposant les KPIs et données analytiques.
+3.  **Streamlit** : Dashboard interactif consommant l'API.
+4.  **Metabase** : Outil BI open-source pour l'exploration de données.
+
+### 🔄 Pipeline de Rafraîchissement
+
+Pour générer les données Gold (Parquet) et les charger dans MongoDB :
+
+```bash
+uv run flows/benchmark_refresh.py
+```
+*Temps de refresh moyen : ~6 secondes*
+
+### 🌐 Lancer l'API et le Dashboard
+
+1.  **Démarrer l'API** (Port 8000) :
+    ```bash
+    uv run uvicorn api.main:app --reload --port 8000
+    ```
+
+2.  **Démarrer le Dashboard Unifié** (Port 8501) :
+    ```bash
+    uv run streamlit run dashboard.py
+    ```
+
+    > **Nouveau** : Le dashboard possède maintenant un sélecteur de source de données dans la barre latérale :
+    > - **Data Lake (Historical/MinIO)** : Visualisation des fichiers statiques (CSV/Parquet) du bucket Gold.
+    > - **Operational (Live/MongoDB)** : Visualisation temps-réel via l'API FastAPI et MongoDB.
+
+### 📊 Accès à Metabase
+
+Metabase est disponible sur [http://localhost:3000](http://localhost:3000).
+- **Setup** : Suivez l'assistant d'installation.
+- **Connexion BDD** :
+    - Type : PostgreSQL
+    - Host : `postgres`
+    - Port : `5432`
+    - Database : `prefect` (ou autre si configuré)
+    - User/Pass : `prefect` / `prefect`
+
 ## 📊 Résultats du Benchmark (Optimisé)
 
 Sur un MacBook Pro (M1/M2/M3) avec le dataset par défaut (2M clients, 10M achats) :

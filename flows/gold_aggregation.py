@@ -492,6 +492,39 @@ def write_csv_to_gold(df: pd.DataFrame, object_name: str) -> str:
     return object_name
 
 
+@task(name="write_parquet_to_gold", retries=2)
+def write_parquet_to_gold(df: pd.DataFrame, object_name: str) -> str:
+    """
+    Write DataFrame to gold bucket as Parquet.
+    
+    Args:
+        df: DataFrame to write
+        object_name: Name of object in gold bucket
+        
+    Returns:
+        Object name in gold bucket
+    """
+    client = get_minio_client()
+    
+    if not client.bucket_exists(BUCKET_GOLD):
+        client.make_bucket(BUCKET_GOLD)
+    
+    # Convert DataFrame to Parquet bytes
+    parquet_buffer = BytesIO()
+    df.to_parquet(parquet_buffer, index=False)
+    parquet_bytes = parquet_buffer.getvalue()
+    
+    client.put_object(
+        BUCKET_GOLD,
+        object_name,
+        BytesIO(parquet_bytes),
+        length=len(parquet_bytes)
+    )
+    
+    print(f"Wrote {len(df)} rows to {BUCKET_GOLD}/{object_name}")
+    return object_name
+
+
 @task(name="write_json_to_gold", retries=2)
 def write_json_to_gold(data: dict, object_name: str) -> str:
     """
@@ -554,36 +587,43 @@ def gold_aggregation_flow() -> dict:
     print("\n[1/9] Creating fact table...")
     fact_sales = create_fact_sales(purchases_df, clients_df)
     fact_sales_file = write_csv_to_gold(fact_sales, "fact_sales.csv")
+    write_parquet_to_gold(fact_sales, "fact_sales.parquet")
     
     # Calculate client KPIs
     print("\n[2/9] Calculating client KPIs...")
     client_kpis = calculate_client_kpis(fact_sales)
     client_kpis_file = write_csv_to_gold(client_kpis, "client_kpis.csv")
+    write_parquet_to_gold(client_kpis, "client_kpis.parquet")
     
     # Calculate product analytics
     print("\n[3/9] Calculating product analytics...")
     product_analytics = calculate_product_analytics(fact_sales)
     product_analytics_file = write_csv_to_gold(product_analytics, "product_analytics.csv")
+    write_parquet_to_gold(product_analytics, "product_analytics.parquet")
     
     # Calculate country analytics
     print("\n[4/9] Calculating country analytics...")
     country_analytics = calculate_country_analytics(fact_sales)
     country_analytics_file = write_csv_to_gold(country_analytics, "country_analytics.csv")
+    write_parquet_to_gold(country_analytics, "country_analytics.parquet")
     
     # Calculate daily aggregations
     print("\n[5/9] Calculating daily aggregations...")
     daily_agg = calculate_daily_aggregations(fact_sales)
     daily_agg_file = write_csv_to_gold(daily_agg, "daily_sales.csv")
+    write_parquet_to_gold(daily_agg, "daily_sales.parquet")
     
     # Calculate weekly aggregations
     print("\n[6/9] Calculating weekly aggregations...")
     weekly_agg = calculate_weekly_aggregations(fact_sales)
     weekly_agg_file = write_csv_to_gold(weekly_agg, "weekly_sales.csv")
+    write_parquet_to_gold(weekly_agg, "weekly_sales.parquet")
     
     # Calculate monthly aggregations
     print("\n[7/9] Calculating monthly aggregations...")
     monthly_agg = calculate_monthly_aggregations(fact_sales)
     monthly_agg_file = write_csv_to_gold(monthly_agg, "monthly_sales.csv")
+    write_parquet_to_gold(monthly_agg, "monthly_sales.parquet")
     
     # Calculate statistical distributions
     print("\n[8/9] Calculating statistical distributions...")

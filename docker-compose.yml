@@ -122,9 +122,34 @@ services:
       - ./data:/opt/spark/data
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
 
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - elt-network
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    ports:
+      - "3000:3000"
+    networks:
+      - elt-network
+    volumes:
+      - metabase_data:/metabase-data
+
 volumes:
   minio_data:
   prefect_db:
+  mongo_data:
+  metabase_data:
 
 networks:
   elt-network:
