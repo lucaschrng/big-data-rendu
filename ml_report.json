@@ -1,0 +1,65 @@
+{
+  "generated_at": "2026-01-20T16:43:37.691206",
+  "churn_model": {
+    "accuracy": 1.0,
+    "roc_auc": 1.0,
+    "top_features": [
+      {
+        "feature": "days_since_last_purchase",
+        "importance": 0.9999999999998995
+      },
+      {
+        "feature": "avg_order_value",
+        "importance": 4.274005417589389e-14
+      },
+      {
+        "feature": "total_spent",
+        "importance": 3.8365558305795704e-14
+      },
+      {
+        "feature": "purchase_frequency_per_month",
+        "importance": 1.2351998886926073e-14
+      },
+      {
+        "feature": "customer_lifetime_days",
+        "importance": 6.945929671317877e-15
+      }
+    ]
+  },
+  "clv_model": {
+    "r2_score": 0.9996817741674558,
+    "mae": 15.105885774828378,
+    "rmse": 69.22540936504686,
+    "top_features": [
+      {
+        "feature": "avg_order_value",
+        "importance": 0.6968423995313444
+      },
+      {
+        "feature": "total_purchases",
+        "importance": 0.2304878283315498
+      },
+      {
+        "feature": "total_quantity",
+        "importance": 0.07241572079892329
+      },
+      {
+        "feature": "days_since_last_purchase",
+        "importance": 8.870384086778365e-05
+      },
+      {
+        "feature": "customer_lifetime_days",
+        "importance": 8.413637163657458e-05
+      }
+    ]
+  },
+  "business_insights": {
+    "total_customers": 19167,
+    "high_value_at_risk": 4398,
+    "champions": 5185,
+    "at_risk": 5853,
+    "loyal": 3731,
+    "avg_churn_probability": 0.5348254007784714,
+    "total_predicted_clv": 101790401.61158895
+  }
+}
