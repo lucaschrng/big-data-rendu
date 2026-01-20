@@ -102,15 +102,110 @@ Le dashboard contient 6 pages:
 - Métriques globales
 - Statistiques descriptives
 
+## ⚡ Apache Spark (Big Data)
+
+### Démarrer le cluster Spark
+
+```bash
+# Lancer le cluster complet (1 master + 2 workers)
+docker-compose up -d spark-master spark-worker-1 spark-worker-2
+
+# Vérifier le cluster
+docker-compose ps
+```
+
+**Spark UI disponible sur:** http://localhost:8080
+
+### Exécuter le pipeline Spark
+
+```bash
+cd flows
+
+# Pipeline Spark uniquement
+python spark_silver_transformation.py
+python spark_gold_aggregation.py
+
+# Ou utiliser le benchmark pour comparer Pandas vs Spark
+python benchmark.py
+```
+
+### Benchmark Pandas vs Spark
+
+```bash
+cd flows
+
+# Benchmark complet (Pandas + Spark)
+python benchmark.py
+
+# Options disponibles
+python benchmark.py --pandas-only     # Seulement Pandas
+python benchmark.py --spark-only      # Seulement Spark
+python benchmark.py --spark-master spark://spark-master:7077  # Cluster distant
+
+# Les résultats sont sauvegardés dans data/benchmark_results.json
+```
+
+#### Exemple de sortie benchmark
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        TIMING COMPARISON (seconds)                          │
+├───────────────────────┬───────────────────┬───────────────────┬─────────────┤
+│ Step                  │ Pandas            │ Spark             │ Speedup     │
+├───────────────────────┼───────────────────┼───────────────────┼─────────────┤
+│ Bronze Ingestion      │            0.1234 │            0.0000 │         N/A │
+│ Silver Transformation │            0.2345 │            1.5678 │       0.15x │
+│ Gold Aggregation      │            0.3456 │            2.3456 │       0.15x │
+├───────────────────────┼───────────────────┼───────────────────┼─────────────┤
+│ TOTAL                 │            0.7035 │            3.9134 │       0.18x │
+└───────────────────────┴───────────────────┴───────────────────┴─────────────┘
+
+🏆 Winner: PANDAS
+   Reason: Lower overhead for small datasets
+```
+
+> **💡 Note**: Spark a un overhead de démarrage. Avec des datasets plus volumineux (millions de lignes), Spark montrera des gains de performance significatifs grâce au traitement distribué.
+
+## 📊 Résultats du Benchmark (Optimisé)
+
+Sur un MacBook Pro (M1/M2/M3) avec le dataset par défaut (2M clients, 10M achats) :
+
+| Étape | Pandas (Local) | Spark (Local Optimisé) |
+|-------|---------------:|------------------------|
+| Ingestion Bronze | ~14s | N/A (Partagé) |
+| Transformation Silver | ~42s | ~76s |
+| Agrégation Gold | ~91s | ~176s |
+| **Total** | **~147s** | **~252s** |
+
+### 💡 Analyse des Performances
+
+1.  **Pourquoi Pandas est plus rapide ici ?**
+    *   Le dataset (12M lignes) tient entièrement en RAM.
+    *   Pandas n'a pas l'overhead de démarrage de JVM/Spark (1-2s par job).
+    *   Les opérations se font "in-memory" sans sérialisation/désérialisation complexe.
+
+2.  **Quand utiliser Spark ?**
+    *   Si le dataset dépasse la RAM (ex: > 100M lignes ou > 50GB).
+    *   Si les calculs nécessitent un cluster distribué (plusieurs machines).
+    *   Pour des jointures complexes sur des données massives.
+
+3.  **Optimisations Spark appliquées :**
+    *   **Broadcast Joins** pour les tables de dimension (Clients).
+    *   **Partitioning** intelligent (8 partitions en local).
+    *   Suppression des actions `.count()` inutiles (Lazy Evaluation).
+    *   **Coalesce(1)** pour les agrégations globales (petits résultats).
+
 ## 🛠️ Stack Technique
 
 ### Infrastructure
 - **MinIO**: Stockage objet (data lake)
 - **PostgreSQL**: Base de données Prefect
 - **Prefect**: Orchestration des workflows
+- **Apache Spark**: Traitement distribué Big Data (1 master + 2 workers)
 
 ### Python
-- **Pandas**: Manipulation de données
+- **Pandas**: Manipulation de données (single-node)
+- **PySpark**: Manipulation de données distribuée
 - **Prefect**: Orchestration
 - **Streamlit**: Dashboard interactif
 - **Plotly**: Visualisations
@@ -125,8 +220,11 @@ Le dashboard contient 6 pages:
 ├── flows/                      # Flows Prefect
 │   ├── config.py              # Configuration MinIO/Prefect
 │   ├── bronze_ingestion.py    # Ingestion Bronze
-│   ├── silver_transformation.py # Transformation Silver
-│   ├── gold_aggregation.py    # Agrégation Gold
+│   ├── silver_transformation.py # Transformation Silver (Pandas)
+│   ├── gold_aggregation.py    # Agrégation Gold (Pandas)
+│   ├── spark_silver_transformation.py # Transformation Silver (Spark)
+│   ├── spark_gold_aggregation.py # Agrégation Gold (Spark)
+│   ├── benchmark.py           # Benchmark Pandas vs Spark
 │   └── run_pipeline.py        # Pipeline complet
 ├── script/
 │   └── generate_data.py       # Génération de données

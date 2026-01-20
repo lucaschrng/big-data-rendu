@@ -11,6 +11,7 @@ dependencies = [
     "pandas>=2.2.0",
     "plotly>=5.18.0",
     "prefect>=3.6.11",
+    "pyspark>=4.1.1",
     "python-dotenv>=1.0.0",
     "scikit-learn>=1.4.0",
     "streamlit>=1.30.0",
